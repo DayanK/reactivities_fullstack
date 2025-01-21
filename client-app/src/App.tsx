@@ -6,8 +6,6 @@ import { Header, List} from "semantic-ui-react";
 function App() {
   const [acitivities, setActivities] = useState([]);
 
-  
-
   useEffect(() => {
     axios.get("http://localhost:5000/api/activities").then((response) => {
       console.log(response);
