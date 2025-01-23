@@ -31,7 +31,7 @@ export default function ActivityDashboard({ activities, selectedActivity,  selec
         </Grid.Column>
 
       <Grid.Column width='6'>
-        {selectedActivity &&
+        {selectedActivity && !editMode &&
           <ActivityDetails
             activity={selectedActivity}
             cancelSelectActivity={cancelSelectActivity}
