@@ -1,26 +1,36 @@
-import  React, { useEffect, useState, Fragment } from "react";
-import axios from "axios";
-import {  Container } from "semantic-ui-react";
+import React, { useEffect, useState, Fragment } from "react";
+import { Container } from "semantic-ui-react";
 import { Activity } from "../models/activities";
 import NavBar from "./NavBar";
 import ActivityDashboard from "../../features/activities/dashboard/ActivityDashboard";
-import { v4 as uuid} from 'uuid';
+import { v4 as uuid } from 'uuid';
+import agent from "../api/agent";
+import LoadingComponent from "./LoadingComponent";
 
 
 function App() {
+
   const [activities, setActivities] = useState<Activity[]>([]);
   const [selectedActivity, setSelectedActivity] = useState<Activity | undefined>(undefined);
   const [editMode, setEditMode] = useState<boolean>(false);
+  const [loading, setLoading] = useState(true);
+  const [submitting, setSubmitting] = useState(false);
 
   useEffect(() => {
-    axios.get<Activity[]>("http://localhost:5000/api/activities").then((response) => {
-      console.log(response);
-      setActivities(response.data);
+    agent.Activities.list().then((response) => {
+      let activities: Activity[] = [];
+      response.forEach(activity => {
+        activity.date = activity.date.split('T')[0];
+        activities.push(activity);
+      });
+
+      setActivities(activities);
+      setLoading(false);
     });
   }, []);
 
 
-  const handleSelectActivity = (id: string) => { 
+  const handleSelectActivity = (id: string) => {
     setSelectedActivity(activities.find(activitiy => activitiy.id === id));
   };
 
@@ -37,36 +47,64 @@ function App() {
     setEditMode(false);
   };
 
-  const handleCreateOrEditActivity = (activity: Activity) => {
-    activity.id
-      ? setActivities([...activities.filter((item) => item.id !== activity.id), activity])
-      : setActivities([...activities, {...activity, id: uuid() }]);  
-    setEditMode(false);
-    setSelectedActivity(activity);
-  };
+  const handleCreateOrEditActivity = async (activity: Activity) => {
+    setSubmitting(true);
 
-  const handleDeleteActivity = (id: string) => {
-    setActivities([...activities.filter((item) => item.id !== id)]);
-  };
+    try {
+        if (activity.id) {
+            await agent.Activities.update(activity);
+            setActivities(prevActivities => [
+                ...prevActivities.filter(item => item.id !== activity.id),
+                activity
+            ]);
+        } else {
+            activity.id = uuid();
+            await agent.Activities.create(activity);
+            setActivities(prevActivities => [...prevActivities, activity]);
+        }
+        setSelectedActivity(activity);
+        setEditMode(false);
+    } catch (error) {
+        console.error("Erreur lors de la création ou de la modification de l'activité", error);
+    } finally {
+        setSubmitting(false);
+    }
+};
 
- 
+
+  const handleDeleteActivity = async (id: string) => {
+    try {
+        setSubmitting(true);
+        await agent.Activities.delete(id);
+        setActivities(prevActivities => prevActivities.filter(item => item.id !== id));
+    } catch (error) {
+        console.error('Error deleting', error);
+    } finally {
+        setSubmitting(false);
+    }
+};
+
+
+
+  if (loading) return <LoadingComponent content="Loading..." />;
 
   return (
     <Fragment>
 
-      <NavBar openForm ={handleFormOpen} />
+      <NavBar openForm={handleFormOpen} />
 
-      <Container style={{marginTop: "7em"}}>
-        <ActivityDashboard 
-        activities={activities} 
-        selectedActivity={selectedActivity}
-        selectActivity={handleSelectActivity}
-        cancelSelectActivity={handleCancelSelectActivity}
-        editMode={editMode}
-        openForm={handleFormOpen}
-        closeForm={handleFormClose}
-        createOrEdit={handleCreateOrEditActivity}
-        deleteActivity={handleDeleteActivity}
+      <Container style={{ marginTop: "7em" }}>
+        <ActivityDashboard
+          activities={activities}
+          selectedActivity={selectedActivity}
+          selectActivity={handleSelectActivity}
+          cancelSelectActivity={handleCancelSelectActivity}
+          editMode={editMode}
+          openForm={handleFormOpen}
+          closeForm={handleFormClose}
+          createOrEdit={handleCreateOrEditActivity}
+          deleteActivity={handleDeleteActivity}
+          submitting={submitting}
         />
       </Container>
 
